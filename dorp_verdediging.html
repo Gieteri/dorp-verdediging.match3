@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dorp Verdediging: Strategische Match-3</title>
+    
+    <!-- SEO & Thematische Optimalisatie -->
+    <meta name="description" content="Verdedig je dorp tegen de Plunderaars in dit strategische Match-3 spel met dynamische levels." />
+    
+    <!-- Laad Tailwind CSS voor styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Professioneel Themapalet: Donker/Middeleeuws */
+            --kleur-primair: #f59e0b; /* Amber 500 (Goud/Belangrijk) */
+            --kleur-secundair: #10b981; /* Emerald 500 */
+            --kleur-bedreiging: #ef4444; /* Rood 500 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000000; 
+            background-image: url('https://i.ytimg.com/vi/hs-XBjiEOjY/maxresdefault.jpg');
+            background-size: contain; 
+            background-repeat: no-repeat; 
+            background-position: center; 
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+        .kaart {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.5); 
+        }
+        .knop-stijl {
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+        .knop-stijl:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 20px -3px rgba(0, 0, 0, 0.4);
+        }
+        .knop-stijl:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+        }
+        /* Animatie voor score-update en zet-waarschuwing */
+        @keyframes statusFlash {
+            0% { transform: scale(1); color: var(--kleur-primair); }
+            50% { transform: scale(1.1); color: var(--kleur-bedreiging); }
+            100% { transform: scale(1); color: var(--kleur-primair); }
+        }
+        .status-geflitst {
+            animation: statusFlash 0.3s ease-in-out;
+        }
+
+        /* Animatie voor Level Up */
+        @keyframes levelUpFlash {
+            0% { transform: scale(1); background-color: #fcd34d; }
+            50% { transform: scale(1.02); background-color: #f59e0b; }
+            100% { transform: scale(1); background-color: #fcd34d; }
+        }
+        .level-up-geflitst {
+            animation: levelUpFlash 0.5s ease-in-out;
+        }
+
+        /* Spelbord en Tegels */
+        #spelbord {
+            grid-template-columns: repeat(8, 1fr);
+            transition: opacity 0.3s;
+        }
+        .tile {
+            aspect-ratio: 1 / 1; 
+            user-select: none;
+            transition: all 0.2s;
+            transform-origin: center;
+            position: relative; 
+        }
+        /* Plunderaar (Pillager) tegelstijl */
+        .pillager-tile {
+            background-color: #fee2e2 !important; /* Lichtrood */
+            border: 2px solid var(--kleur-bedreiging); 
+            box-shadow: inset 0 0 5px rgba(239, 68, 68, 0.8);
+            transform: scale(0.9);
+            cursor: not-allowed !important;
+        }
+        .selected {
+            outline: 4px solid var(--kleur-primair); 
+            outline-offset: -4px;
+            transform: scale(0.95);
+        }
+
+        /* Animatie voor vallen en poppen */
+        @keyframes shake { 0%, 100% { transform: translateX(0) scale(1); } 25% { transform: translateX(-5px) scale(1); } 50% { transform: translateX(5px) scale(1); } 75% { transform: translateX(-5px) scale(1); } }
+        .shake { animation: shake 0.3s ease-in-out; }
+        @keyframes pop { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.5); } }
+        .pop { animation: pop 0.3s ease-out forwards; }
+        @keyframes fall { 0% { transform: translateY(-100%); } 100% { transform: translateY(0); } }
+        .fall { animation: fall 0.4s ease-out forwards; }
+        @keyframes shuffle { 0%, 100% { transform: rotateY(0deg); opacity: 1; } 50% { transform: rotateY(180deg); opacity: 0.5; } }
+        .shuffling .tile { animation: shuffle 0.7s ease-in-out; }
+        
+        /* TNT Explosie Effect */
+        @keyframes tntExplosion {
+            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(255, 140, 0, 0.7); }
+            50% { transform: scale(1.5); opacity: 0.8; box-shadow: 0 0 20px 10px rgba(255, 69, 0, 0.9); }
+            100% { transform: scale(2.5); opacity: 0; box-shadow: 0 0 0 50px rgba(255, 140, 0, 0); }
+        }
+        .explosion-wave {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle, #FFD700 0%, #FF4500 50%, transparent 70%); 
+            animation: tntExplosion 0.5s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+            pointer-events: none;
+            z-index: 20; 
+        }
+
+        /* Confetti Styling (Voor High Score) */
+        #confetti-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 10; }
+        .confetti { position: absolute; width: 8px; height: 12px; background-color: var(--kleur-primair); opacity: 0; animation: confetti-fall 3s linear infinite; }
+        .confetti:nth-child(3n+1) { background-color: #fca5a5; } 
+        .confetti:nth-child(3n+2) { background-color: #d1d5db; } 
+        .confetti:nth-child(3n+3) { background-color: #fef08a; } 
+        @keyframes confetti-fall {
+            0% { opacity: 1; transform: translateY(-10vh) rotateZ(0deg) rotateY(0deg); }
+            100% { opacity: 0.5; transform: translateY(100vh) rotateZ(720deg) rotateY(360deg); }
+        }
+    </style>
+    <!-- Firebase Imports voor Persistentie van de Beste Score (Totaalscore) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, query, limit, getDocs } from "https://www.gstatic.com/gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        setLogLevel('Debug'); 
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
+
+        window.db = null;
+        window.auth = null;
+        window.userId = null;
+        window.isAuthReady = false;
+        window.bestScore = 0; // Dit is de High Score van de Totaalscore
+
+        const HIGH_SCORE_COLLECTION_PATH = `/artifacts/${appId}/public/data/highscores`;
+
+        /** Initialiseert Firebase en authenticatie. */
+        async function initializeFirebase() {
+            if (!firebaseConfig) { console.error("Firebase configuratie ontbreekt."); return; }
+            try {
+                const app = initializeApp(firebaseConfig);
+                window.db = getFirestore(app);
+                window.auth = getAuth(app);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(window.auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(window.auth);
+                }
+
+                onAuthStateChanged(window.auth, (user) => {
+                    if (user) {
+                        window.userId = user.uid;
+                        window.isAuthReady = true;
+                        document.getElementById('user-id-display').textContent = `ID: ${window.userId.substring(0, 8)}...`;
+                        window.loadHighScore();
+                    } else {
+                        window.userId = crypto.randomUUID(); 
+                        window.isAuthReady = true;
+                        document.getElementById('user-id-display').textContent = `ID (Tijdelijk): ${window.userId.substring(0, 8)}...`;
+                        window.loadHighScore();
+                    }
+                });
+
+            } catch (error) {
+                console.error("Fout bij initialisatie of authenticatie:", error);
+            }
+        }
+
+        /** Laadt de high score van Firestore. */
+        window.loadHighScore = async () => {
+            if (!window.db || !window.isAuthReady) return;
+
+            try {
+                const q = query(
+                    collection(window.db, HIGH_SCORE_COLLECTION_PATH),
+                    limit(1) 
+                );
+
+                const snapshot = await getDocs(q);
+                let highestScore = 0;
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.score > highestScore) {
+                         highestScore = data.score;
+                    }
+                });
+                
+                if (highestScore > 0) {
+                    window.bestScore = highestScore;
+                    document.getElementById('best-score-waarde').textContent = window.bestScore;
+                }
+                
+            } catch (error) {
+                console.error("Fout bij het laden van de beste score:", error);
+            }
+        };
+
+        /** Slaat de TOTAALSCORE op als high score als deze hoger is. */
+        window.saveScore = async (newScore) => {
+            if (!window.db || !window.userId || !window.isAuthReady) return;
+            
+            const currentBest = parseInt(document.getElementById('best-score-waarde').textContent);
+
+            if (newScore > currentBest) {
+                window.bestScore = newScore;
+                document.getElementById('best-score-waarde').textContent = newScore;
+                
+                try {
+                    const scoreDocRef = doc(window.db, HIGH_SCORE_COLLECTION_PATH, window.userId);
+
+                    await setDoc(scoreDocRef, {
+                        userId: window.userId,
+                        score: newScore,
+                        timestamp: new Date().toISOString()
+                    }, { merge: true });
+
+                } catch (error) {
+                    console.error("Fout bij het opslaan van de score:", error);
+                }
+            }
+        };
+
+        window.addEventListener('load', initializeFirebase);
+    </script>
+</head>
+<body>
+
+    <!-- Hoofdcontainer voor het spel -->
+    <div id="spel-container" class="kaart bg-gray-900 w-full max-w-md rounded-xl overflow-hidden shadow-2xl transition-all duration-300 border-2 border-gray-700">
+
+        <!-- Kop en Score Weergave -->
+        <header class="bg-gray-700 p-4 text-white flex justify-between items-center rounded-t-xl border-b border-gray-600">
+            <h1 class="text-3xl font-extrabold tracking-tight text-amber-500">Dorp Verdediging</h1>
+            <div class="text-right">
+                <p class="text-xs opacity-70">Totaalscore:</p>
+                <p id="total-score-waarde" class="text-xl font-bold text-emerald-500">0</p>
+                <p class="text-xs opacity-70">Hoogste Score:</p>
+                <p id="best-score-waarde" class="text-xl font-bold text-amber-500">0</p>
+            </div>
+        </header>
+
+        <!-- Score, Zetten & Berichten -->
+        <div class="p-4 bg-gray-800 border-b border-gray-700">
+            
+            <!-- Level Status & Missie Briefing -->
+            <div class="bg-gray-700 p-3 rounded-lg border border-gray-600 mb-4 shadow-inner">
+                <div class="flex justify-between items-center mb-2">
+                    <p class="text-sm font-semibold text-white">Level <span id="level-waarde" class="text-amber-500 text-lg">1</span>: <span id="level-naam" class="text-gray-300">Vredige Start</span></p>
+                    <p class="text-xs text-gray-400">Doel: <span id="goal-score-waarde" class="font-bold text-amber-500">1000</span> pts</p>
+                </div>
+            </div>
+
+            <!-- Score and Moves Row -->
+            <div class="flex justify-around items-center">
+                <!-- Score (Level Score) -->
+                <div class="text-center">
+                    <p class="text-sm text-gray-400">Level Score:</p>
+                    <p id="current-level-score-waarde" class="text-4xl font-extrabold text-amber-500 transition-colors duration-200">0</p>
+                </div>
+                <!-- Zetten over -->
+                <div class="text-center">
+                    <p class="text-sm text-gray-400">Zetten Resterend:</p>
+                    <p id="moves-left-waarde" class="text-4xl font-extrabold text-red-500 transition-colors duration-200">30</p>
+                </div>
+            </div>
+            
+            <!-- Message Box (Feedback) -->
+            <div id="message-box" class="text-sm font-semibold text-center text-red-400 h-6 flex items-center justify-center mt-3"></div>
+        </div>
+
+        <!-- Spelbord -->
+        <div id="spelbord" class="grid gap-1 p-2 bg-gray-700 flex items-center justify-center relative border-b border-gray-600">
+            <p id="board-placeholder" class="text-gray-500 absolute text-center w-full">Druk op "Start Missie"!</p>
+        </div>
+
+        <!-- Voet -->
+        <footer class="p-2 text-xs text-gray-500 text-center bg-gray-900 rounded-b-xl">
+            <span id="user-id-display">ID: Lader...</span> | Plunderaars geven bonuspunten!
+        </footer>
+
+        <!-- Startscherm/Modal Overlay -->
+        <div id="overlay" class="absolute inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 transition-opacity duration-300">
+             <!-- Confetti Container -->
+            <div id="confetti-container" class="hidden"></div>
+
+            <div id="modal-content" class="bg-gray-800 kaart p-8 rounded-xl text-center max-w-sm w-full border-2 border-amber-500 shadow-xl">
+                <h2 id="modal-titel" class="text-4xl font-extrabold text-amber-500 mb-4">Dorp Verdediging</h2>
+                <p id="modal-tekst" class="text-gray-300 mb-6">Welkom commandant! Behaal het doel van het huidige niveau om verder te gaan. Je score wordt **gereset** bij elke niveau-overgang!</p>
+                
+                <button id="actie-knop" onclick="startGame()" class="knop-stijl bg-amber-600 text-gray-900 text-xl font-bold w-full py-3 rounded-xl hover:bg-amber-500 focus:outline-none focus:ring-4 focus:ring-amber-500/50 mt-6">
+                    Start Campagne
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Spel Constanten ---
+        const GAME_STATE = { START: 'START', PLAYING: 'PLAYING', GAME_OVER: 'GAME_OVER' };
+        const BOARD_SIZE = 8;
+        const MAX_MOVES = 30; 
+
+        // Statische instructie tekst voor de modal
+        const START_TITLE = "Dorp Verdediging";
+        const START_TEXT = "Welkom commandant! Behaal het doel van het huidige niveau om verder te gaan. Je score wordt **gereset** bij elke niveau-overgang!";
+        const START_BUTTON_TEXT = "Start Campagne";
+
+        // Speciale Tegels
+        const PILLAGER_GEM = '💀'; 
+        const PILLAGER_BONUS = 50; 
+        const TNT_GEM = '💣';
+        const TNT_BONUS = 150; 
+
+        // Item Eigenschappen
+        const ITEM_PROPERTIES = {
+            '🌾': { points: 10, weight: 4, name: 'Graan' },      
+            '🧱': { points: 15, weight: 3, name: 'Steen' },
+            '🛡️': { points: 20, weight: 3, name: 'Schild' },
+            '⚙️': { points: 30, weight: 2, name: 'Gereedschap' },
+            '💎': { points: 50, weight: 1.5, name: 'Smaragd' }, 
+            '💣': { points: 0, weight: 0.5, name: 'TNT' },       
+        };
+        const PILLAGER_PENALTY_FACTOR = 0.5; 
+
+        // --- LEVEL DATA (GOAL SCORE IS HET DOEL VOOR DAT LEVEL. Punten resetten.) ---
+        const LEVEL_DATA = [
+            // { index: 0 }
+            { level: 1, goalScore: 1000, pillagerChance: 0.00, name: "Vredige Start"},
+            // { index: 1 }
+            { level: 2, goalScore: 2500, pillagerChance: 0.05, name: "Eerste Verkenning"},
+            // { index: 2 }
+            { level: 3, goalScore: 4000, pillagerChance: 0.10, name: "Toenemende Dreiging"},
+            // { index: 3 }
+            { level: 4, goalScore: 5500, pillagerChance: 0.15, name: "Intense Belegering"},
+            // { index: 4 }
+            { level: 5, goalScore: 7000, pillagerChance: 0.20, name: "De Grote Test"},
+            // Max Level (Geen goalScore meer, speel tot moves op zijn)
+        ];
+
+
+        // --- Game Status Variabelen ---
+        let currentLevelScore = 0; // Score die reset per level
+        let totalScore = 0; // Cumulatieve score, voor High Score
+        let movesLeft = MAX_MOVES; 
+        let currentLevel = 1; 
+        let currentPillagerChance = 0.00; 
+        let gameState = GAME_STATE.START;
+        let board = [];
+        let domBoard = []; 
+        let selectedTile = null;
+        let isProcessing = false; 
+
+        // UI-elementen (DOM-referenties)
+        const overlay = document.getElementById('overlay');
+        const modalTitel = document.getElementById('modal-titel');
+        const modalTekst = document.getElementById('modal-tekst');
+        const actieKnop = document.getElementById('actie-knop');
+        const currentLevelScoreElement = document.getElementById('current-level-score-waarde');
+        const totalScoreElement = document.getElementById('total-score-waarde'); 
+        const movesLeftElement = document.getElementById('moves-left-waarde'); 
+        const messageBoxElement = document.getElementById('message-box');
+        const boardPlaceholder = document.getElementById('board-placeholder');
+        const spelbord = document.getElementById('spelbord');
+        const levelWaardeElement = document.getElementById('level-waarde'); 
+        const levelNaamElement = document.getElementById('level-naam'); 
+        const goalScoreElement = document.getElementById('goal-score-waarde'); 
+        const confettiContainer = document.getElementById('confetti-container');
+
+
+        // --- BOARD LOGICA FUNCTIES (Onveranderd voor fillEmptySpots) ---
+
+        function getRandomVillagerGem() {
+            const weightedGems = [];
+            for (const [gem, props] of Object.entries(ITEM_PROPERTIES)) {
+                if (gem !== PILLAGER_GEM) {
+                    for (let i = 0; i < props.weight; i++) {
+                        weightedGems.push(gem);
+                    }
+                }
+            }
+            return weightedGems[Math.floor(Math.random() * weightedGems.length)];
+        }
+
+        function getNewGemType() {
+            if (Math.random() < currentPillagerChance) {
+                return PILLAGER_GEM;
+            }
+            return getRandomVillagerGem();
+        }
+
+        function getTileColor(emoji) {
+            if (emoji === PILLAGER_GEM) return '#fee2e2'; 
+            if (emoji === TNT_GEM) return '#fcd34d'; 
+            switch (emoji) {
+                case '🌾': return '#d1fae5'; 
+                case '💎': return '#bfdbfe'; 
+                case '🛡️': return '#fef9c3'; 
+                case '⚙️': return '#ffedd5'; 
+                case '🧱': return '#fce7f3'; 
+                default: return '#ffffff';
+            }
+        }
+
+        function getRandomSafePiece(r, c) {
+            let piece;
+            do {
+                piece = getRandomVillagerGem();
+            } while (
+                (r >= 2 && board[r - 1][c] === piece && board[r - 2][c] === piece && piece !== TNT_GEM) ||
+                (c >= 2 && board[r][c - 1] === piece && board[r][c - 2] === piece && piece !== TNT_GEM) ||
+                (r >= 2 && c >= 2 && board[r - 1][c - 1] === piece && board[r - 2][c - 2] === piece && piece !== TNT_GEM) ||
+                (r >= 2 && c < BOARD_SIZE - 2 && board[r - 1][c + 1] === piece && board[r - 2][c + 2] === piece && piece !== TNT_GEM)
+            );
+            return piece;
+        }
+
+        function createInitialBoard() {
+            spelbord.innerHTML = '';
+            spelbord.classList.add('grid', 'gap-1', 'p-2', 'w-full');
+            domBoard = [];
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                board[r] = [];
+                domBoard[r] = [];
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    board[r][c] = getRandomSafePiece(r, c);
+                    
+                    const tile = document.createElement('div');
+                    tile.dataset.row = r;
+                    tile.dataset.col = c;
+                    tile.className = `tile flex items-center justify-center p-1 text-2xl sm:text-3xl rounded-lg shadow-sm font-bold cursor-pointer relative transition-all duration-100`;
+                    tile.onclick = handleTileClick;
+
+                    updateTileVisuals(tile, board[r][c]); 
+                    
+                    spelbord.appendChild(tile);
+                    domBoard[r][c] = tile;
+                }
+            }
+            while (!isMovePossible()) {
+                console.warn("Initieel bord niet speelbaar. Schudden...");
+                shuffleBoard(false); 
+            }
+        }
+
+        function updateTileVisuals(tileElement, type) {
+            tileElement.textContent = type;
+            tileElement.style.backgroundColor = getTileColor(type);
+            
+            tileElement.className = tileElement.className.split(' ').filter(c => 
+                !['pillager-tile', 'selected', 'shake', 'pop', 'fall', 'shuffling'].includes(c)
+            ).join(' ');
+
+            if (type === PILLAGER_GEM) {
+                tileElement.classList.add('pillager-tile');
+            }
+        }
+
+        function createTileExplosion(tileElement) {
+            if (!tileElement) return;
+            const wave = document.createElement('div');
+            wave.className = 'explosion-wave';
+            tileElement.appendChild(wave);
+            tileElement.style.transform = 'scale(1.2)';
+            setTimeout(() => {
+                if (tileElement.contains(wave)) {
+                    tileElement.removeChild(wave);
+                }
+                tileElement.style.transform = '';
+            }, 500);
+        }
+
+        function findAllMatches() {
+            const matches = new Set();
+            
+            // Horizontaal, Verticaal, Diagonaal (\), Diagonaal (/)
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    const type = board[r][c];
+                    if (!type || type === PILLAGER_GEM) continue;
+
+                    // Controleer 3 Horizontaal
+                    if (c <= BOARD_SIZE - 3 && type === board[r][c + 1] && type === board[r][c + 2]) {
+                        matches.add(`${r},${c}`); matches.add(`${r},${c + 1}`); matches.add(`${r},${c + 2}`);
+                    }
+                    // Controleer 3 Verticaal
+                    if (r <= BOARD_SIZE - 3 && type === board[r + 1][c] && type === board[r + 2][c]) {
+                        matches.add(`${r},${c}`); matches.add(`${r + 1},${c}`); matches.add(`${r + 2},${c}`);
+                    }
+                    // Controleer 3 Diagonaal (Rechts-Onder)
+                    if (r <= BOARD_SIZE - 3 && c <= BOARD_SIZE - 3 && type === board[r + 1][c + 1] && type === board[r + 2][c + 2]) {
+                        matches.add(`${r},${c}`); matches.add(`${r + 1},${c + 1}`); matches.add(`${r + 2},${c + 2}`);
+                    }
+                    // Controleer 3 Diagonaal (Links-Onder)
+                    if (r <= BOARD_SIZE - 3 && c >= 2 && type === board[r + 1][c - 1] && type === board[r + 2][c - 2]) {
+                        matches.add(`${r},${c}`); matches.add(`${r + 1},${c - 1}`); matches.add(`${r + 2},${c - 2}`);
+                    }
+                }
+            }
+            
+            return Array.from(matches).map(pos => {
+                const [r, c] = pos.split(',').map(Number);
+                return { r, c, type: board[r][c] };
+            });
+        }
+
+        /** Verwijdert matches, verwerkt TNT en vult het bord. */
+        async function processMatches() {
+            isProcessing = true;
+            let totalScoreGained = 0;
+            let matchesFound;
+            
+            do {
+                matchesFound = findAllMatches();
+
+                if (matchesFound.length > 0) {
+                    const tilesToRemove = new Set(matchesFound.map(m => `${m.r},${m.c}`));
+                    
+                    // Bereken Score en voer TNT-explosies uit
+                    for (const match of matchesFound) {
+                        if (match.type && ITEM_PROPERTIES[match.type]) {
+                            totalScoreGained += ITEM_PROPERTIES[match.type].points;
+                        }
+                        
+                        // Activeer TNT in de buurt van de match
+                        checkAndExplodeTNT(match.r, match.c, tilesToRemove);
+                    }
+
+                    // Plunderaar Score (geëlimineerd door match of TNT)
+                    tilesToRemove.forEach(pos => {
+                        const [r, c] = pos.split(',').map(Number);
+                        if (board[r][c] === PILLAGER_GEM) {
+                            totalScoreGained += PILLAGER_BONUS;
+                        }
+                    });
+                    
+                    // Voer de verwijdering van tegels en animatie uit
+                    tilesToRemove.forEach(pos => {
+                        const [r, c] = pos.split(',').map(Number);
+                        if (board[r][c] === TNT_GEM) {
+                            createTileExplosion(domBoard[r][c]);
+                        }
+                        if (domBoard[r][c] && !domBoard[r][c].classList.contains('pop')) {
+                            domBoard[r][c].classList.add('pop');
+                        }
+                        board[r][c] = null; 
+                    });
+                    
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Laat tegels vallen en vul lege plekken (HET OPLOSSEN VAN DE GATEN)
+                    totalScoreGained += fillEmptySpots();
+                    await new Promise(resolve => setTimeout(resolve, 350)); 
+                    
+                }
+
+            } while (matchesFound.length > 0); 
+
+            updateScore(totalScoreGained);
+            isProcessing = false;
+
+            // Controleer na verwerking op speelbaarheid
+            if (gameState === GAME_STATE.PLAYING && !isMovePossible()) {
+                 showMessage("Geen zetten mogelijk. Bord wordt geschud!");
+                 await new Promise(resolve => setTimeout(resolve, 500));
+                 shuffleBoard();
+            }
+        }
+
+        function checkAndExplodeTNT(r, c, tilesToRemove) {
+            const neighbors = [];
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
+                        neighbors.push({ r: nr, c: nc });
+                    }
+                }
+            }
+
+            for (const { r: nr, c: nc } of neighbors) {
+                if (board[nr][nc] === TNT_GEM) {
+                    const tntPos = `${nr},${nc}`;
+                    if (!tilesToRemove.has(tntPos)) {
+                        
+                        // Explodeer de TNT zelf en geef bonus
+                        score += TNT_BONUS; 
+                        tilesToRemove.add(tntPos);
+                        board[nr][nc] = null; 
+                        
+                        // Ruim de omliggende 3x3 tegels op door ze aan tilesToRemove toe te voegen
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                const tr = nr + dr;
+                                const tc = nc + dc;
+                                if (tr >= 0 && tr < BOARD_SIZE && tc >= 0 && tc < BOARD_SIZE) {
+                                    const tilePos = `${tr},${tc}`;
+                                    if (board[tr][tc] === PILLAGER_GEM && !tilesToRemove.has(tilePos)) {
+                                        score += PILLAGER_BONUS;
+                                    }
+                                    tilesToRemove.add(tilePos);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /** Laat tegels vallen en vul lege plekken (Vult de gaten!). */
+        function fillEmptySpots() {
+            let penaltyScore = 0;
+
+            // 1. Laat bestaande tegels vallen
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                let emptyRow = BOARD_SIZE - 1;
+                for (let r = BOARD_SIZE - 1; r >= 0; r--) {
+                    if (board[r][c] !== null) {
+                        if (r !== emptyRow) {
+                            board[emptyRow][c] = board[r][c];
+                            board[r][c] = null;
+                            
+                            const tileToMove = domBoard[r][c];
+                            domBoard[emptyRow][c] = tileToMove;
+                            domBoard[r][c] = null;
+
+                            tileToMove.dataset.row = emptyRow;
+                            tileToMove.dataset.col = c;
+                            tileToMove.style.transform = `translateY(${emptyRow - r}00%)`; 
+                        }
+                        emptyRow--;
+                    }
+                }
+            }
+
+            // 2. Vul de bovenste rijen met nieuwe tegels (De nieuwe items!)
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                for (let r = 0; r < BOARD_SIZE; r++) {
+                    if (board[r][c] === null) {
+                        const newGem = getNewGemType(); 
+                        board[r][c] = newGem;
+                        
+                        if (newGem === PILLAGER_GEM) {
+                            penaltyScore -= PILLAGER_BONUS * PILLAGER_PENALTY_FACTOR; 
+                        }
+
+                        // Nieuwe DOM-tegel aanmaken
+                        const newTile = document.createElement('div');
+                        newTile.dataset.row = r;
+                        newTile.dataset.col = c;
+                        newTile.className = `tile flex items-center justify-center p-1 text-2xl sm:text-3xl rounded-lg shadow-sm font-bold cursor-pointer fall relative transition-all duration-100`;
+                        newTile.onclick = handleTileClick;
+                        
+                        updateTileVisuals(newTile, newGem);
+                        
+                        const index = r * BOARD_SIZE + c;
+                        spelbord.insertBefore(newTile, spelbord.children[index]);
+                        domBoard[r][c] = newTile;
+
+                        newTile.style.animationDelay = `${r * 0.05}s`;
+                    }
+                }
+            }
+
+            // 3. Reset de transformaties
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (domBoard[r][c]) {
+                        domBoard[r][c].style.transform = '';
+                        domBoard[r][c].classList.remove('pop', 'fall'); 
+                    }
+                }
+            }
+            return penaltyScore; 
+        }
+
+        function shuffleBoard(animate = true) {
+            if (gameState !== GAME_STATE.PLAYING) return;
+            if (animate) spelbord.classList.add('shuffling');
+
+            let flatBoard = board.flat();
+            
+            for (let i = flatBoard.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flatBoard[i], flatBoard[j]] = [flatBoard[j], flatBoard[i]];
+            }
+
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    board[r][c] = flatBoard[r * BOARD_SIZE + c];
+                    updateTileVisuals(domBoard[r][c], board[r][c]);
+                }
+            }
+
+            if (animate) {
+                setTimeout(() => {
+                    spelbord.classList.remove('shuffling');
+                    if (!isMovePossible()) {
+                        shuffleBoard();
+                    } else {
+                        processMatches(); 
+                    }
+                }, 700);
+            }
+        }
+        
+        // --- SPELBESTURING FUNCTIES (Aangepast voor Level Reset) ---
+
+        /** Start een nieuw spel. */
+        function startGame() {
+            modalTitel.textContent = START_TITLE;
+            modalTekst.innerHTML = START_TEXT;
+            actieKnop.textContent = START_BUTTON_TEXT;
+
+            currentLevelScore = 0;
+            totalScore = 0; // Reset totale score bij nieuwe campagne
+            movesLeft = MAX_MOVES;
+            currentLevel = 1; 
+            currentPillagerChance = LEVEL_DATA[0].pillagerChance; 
+            gameState = GAME_STATE.PLAYING;
+            selectedTile = null;
+            isProcessing = false;
+            
+            stopConfetti(); 
+
+            overlay.classList.add('opacity-0', 'pointer-events-none');
+            spelbord.style.opacity = '1';
+            boardPlaceholder.style.display = 'none';
+
+            createInitialBoard();
+            updateUI();
+            updateLevelDisplay(); 
+        }
+
+        function handleTileClick(event) {
+            if (isProcessing || gameState !== GAME_STATE.PLAYING) return;
+
+            const r = parseInt(event.target.dataset.row);
+            const c = parseInt(event.target.dataset.col);
+
+            if (board[r][c] === PILLAGER_GEM) {
+                showMessage("Plunderaars zijn niet verplaatsbaar!");
+                domBoard[r][c].classList.add('shake');
+                setTimeout(() => domBoard[r][c].classList.remove('shake'), 300);
+                return;
+            }
+
+            if (!selectedTile) {
+                selectedTile = { r, c, element: event.target };
+                event.target.classList.add('selected');
+            } else {
+                const r2 = r;
+                const c2 = c;
+                
+                selectedTile.element.classList.remove('selected');
+
+                if (selectedTile.r === r2 && selectedTile.c === c2) {
+                    selectedTile = null;
+                    return;
+                }
+
+                if (isAdjacent(selectedTile.r, selectedTile.c, r2, c2)) {
+                    // Geldige ruil: voer uit
+                    swapTiles(selectedTile.r, selectedTile.c, r2, c2);
+                    selectedTile = null;
+                } else {
+                    // Ongeldige zet: selecteer de nieuwe tegel
+                    showMessage("Tegels moeten direct naast elkaar liggen (horizontaal, verticaal of diagonaal).");
+                    selectedTile = { r: r2, c: c2, element: event.target };
+                    event.target.classList.add('selected');
+                }
+            }
+        }
+
+        function isAdjacent(r1, c1, r2, c2) {
+            const dr = Math.abs(r1 - r2);
+            const dc = Math.abs(c1 - c2);
+            return (dr <= 1 && dc <= 1) && (dr + dc > 0);
+        }
+
+        async function swapTiles(r1, c1, r2, c2) {
+            isProcessing = true; 
+            const element1 = domBoard[r1][c1];
+            const element2 = domBoard[r2][c2];
+
+            // Vlieg animatie
+            element1.style.transform = `translate(${100 * (c2 - c1)}%, ${100 * (r2 - r1)}%)`;
+            element2.style.transform = `translate(${100 * (c1 - c2)}%, ${100 * (r1 - r2)}%)`;
+
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            // Logische Ruil
+            [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+
+            const matches = findAllMatches();
+
+            if (matches.length > 0) {
+                // Geldige zet: blijf geruild
+                movesLeft--;
+                
+                // Herstel transformaties en update DOM-posities
+                element1.style.transform = '';
+                element2.style.transform = '';
+                
+                element1.dataset.row = r2;
+                element1.dataset.col = c2;
+                element2.dataset.row = r1;
+                element2.dataset.col = c1;
+
+                domBoard[r1][c1] = element2;
+                domBoard[r2][c2] = element1;
+                
+                // Gebruik insertBefore op basis van de nieuwe index om de volgorde in het raster te herstellen
+                const newIndex1 = r2 * BOARD_SIZE + c2;
+                const newIndex2 = r1 * BOARD_SIZE + c1;
+                
+                // Zorg ervoor dat de DOM-elementen correct worden geplaatst
+                // Dit is de meest betrouwbare manier om de DOM-volgorde te updaten
+                const tempChildren = Array.from(spelbord.children);
+                tempChildren[newIndex1] = element1;
+                tempChildren[newIndex2] = element2;
+                
+                spelbord.innerHTML = '';
+                tempChildren.forEach(child => spelbord.appendChild(child));
+                
+                updateUI();
+                await processMatches();
+
+            } else {
+                // Ongeldige zet: Ruil terug
+                showMessage("Geen match gevormd. Tegel teruggeruild!");
+                
+                // Omgekeerde visuele ruil
+                element1.style.transform = `translate(${100 * (c1 - c2)}%, ${100 * (r1 - r2)}%)`;
+                element2.style.transform = `translate(${100 * (c2 - c1)}%, ${100 * (r2 - r1)}%)`;
+                
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                // Omgekeerde logische ruil
+                [board[r1][c1], board[r2][c2]] = [board[r2][c2], board[r1][c1]];
+                
+                // Herstel DOM en transformaties
+                element1.style.transform = '';
+                element2.style.transform = '';
+
+                // Straf: trek zet af en voeg een Plunderaar toe (als level dat toelaat)
+                movesLeft--;
+                if (currentPillagerChance > 0) {
+                    addRandomPillager(); 
+                }
+                updateUI();
+            }
+
+            isProcessing = false;
+            if (movesLeft <= 0) {
+                gameOver();
+            }
+        }
+        
+        function addRandomPillager() {
+            const safeSpots = [];
+            for(let r = 0; r < BOARD_SIZE; r++) {
+                for(let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] !== PILLAGER_GEM && board[r][c] !== TNT_GEM) {
+                        safeSpots.push({r, c});
+                    }
+                }
+            }
+
+            if (safeSpots.length > 0) {
+                const {r, c} = safeSpots[Math.floor(Math.random() * safeSpots.length)];
+                board[r][c] = PILLAGER_GEM;
+                updateTileVisuals(domBoard[r][c], PILLAGER_GEM);
+                showMessage("❌ Plunderaar is het dorp binnengeslopen!");
+            }
+        }
+
+        function isMovePossible() {
+            for (let r = 0; r < BOARD_SIZE; r++) {
+                for (let c = 0; c < BOARD_SIZE; c++) {
+                    if (board[r][c] === PILLAGER_GEM) continue;
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (dr === 0 && dc === 0) continue;
+                            const r2 = r + dr;
+                            const c2 = c + dc;
+
+                            if (r2 >= 0 && r2 < BOARD_SIZE && c2 >= 0 && c2 < BOARD_SIZE && board[r2][c2] !== PILLAGER_GEM) {
+                                [board[r][c], board[r2][c2]] = [board[r2][c2], board[r][c]]; 
+                                if (findAllMatches().length > 0) {
+                                    [board[r][c], board[r2][c2]] = [board[r2][c2], board[r][c]]; 
+                                    return true;
+                                }
+                                [board[r][c], board[r2][c2]] = [board[r2][c2], board[r][c]]; 
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+
+        // --- UI & STATE UPDATES (Aangepast voor Level Reset) ---
+
+        /** Update de scores en controleert op level-up. */
+        function updateScore(points) {
+            if (points === 0) return;
+            
+            currentLevelScore += points;
+            totalScore += points; // Totaalscore loopt altijd door
+            
+            currentLevelScoreElement.textContent = currentLevelScore;
+            totalScoreElement.textContent = totalScore;
+            
+            currentLevelScoreElement.classList.add('status-geflitst');
+            setTimeout(() => currentLevelScoreElement.classList.remove('status-geflitst'), 300);
+
+            // 1. Controleer op Level Up
+            checkLevelUp();
+            
+            // 2. Sla totale score op als high score
+            if (window.isAuthReady && totalScore > window.bestScore) {
+                window.saveScore(totalScore);
+            }
+        }
+
+        /** Controleert of de speler een nieuw level heeft bereikt en voert de reset uit. */
+        function checkLevelUp() {
+            const currentData = LEVEL_DATA[currentLevel - 1];
+            
+            if (currentData && currentLevelScore >= currentData.goalScore) {
+                
+                currentLevel++; // Verhoog niveau
+                currentLevelScore = 0; // SCORE RESET!
+                
+                const nextData = LEVEL_DATA[currentLevel - 1]; // Data van het NIEUWE niveau
+                
+                if (nextData) {
+                    currentPillagerChance = nextData.pillagerChance;
+                    // Reset moves, of geef bonus moves
+                    movesLeft += MAX_MOVES; 
+                    
+                    updateLevelDisplay(true); // Toon Level Up bericht
+                    
+                } else {
+                    // MAX NIVEAU BEREIKT: Speel Level 5 door tot moves op zijn
+                    missionComplete();
+                }
+            }
+        }
+
+        /** Update de Level Weergave in de UI. */
+        function updateLevelDisplay(isLevelUp = false) {
+            const currentData = LEVEL_DATA[currentLevel - 1];
+
+            levelWaardeElement.textContent = currentLevel;
+            levelNaamElement.textContent = currentData ? currentData.name : 'Eindeloze Verdediging';
+            goalScoreElement.textContent = currentData ? currentData.goalScore : 'MAX';
+
+            // Zorg ervoor dat de score na de reset correct wordt weergegeven
+            currentLevelScoreElement.textContent = currentLevelScore;
+
+            if (isLevelUp) {
+                showMessage(`⬆️ Level Up! Je hebt Niveau ${currentLevel} bereikt! Score gereset. Extra zetten ontvangen.`);
+                levelWaardeElement.classList.add('level-up-geflitst');
+                levelNaamElement.classList.add('level-up-geflitst');
+                setTimeout(() => {
+                    levelWaardeElement.classList.remove('level-up-geflitst');
+                    levelNaamElement.classList.remove('level-up-geflitst');
+                }, 500);
+            }
+        }
+
+
+        /** Update alle UI-elementen. */
+        function updateUI() {
+            movesLeftElement.textContent = movesLeft;
+            currentLevelScoreElement.textContent = currentLevelScore; // Level score
+            totalScoreElement.textContent = totalScore; // Totaal score
+            
+            if (movesLeft <= 5) {
+                movesLeftElement.classList.add('status-geflitst');
+            } else {
+                 movesLeftElement.classList.remove('status-geflitst');
+            }
+        }
+
+        /** Toont een tijdelijk bericht. */
+        function showMessage(msg) {
+            messageBoxElement.textContent = msg;
+            messageBoxElement.classList.add('status-geflitst');
+            setTimeout(() => {
+                 messageBoxElement.textContent = '';
+                 messageBoxElement.classList.remove('status-geflitst');
+            }, 1500);
+        }
+        
+        /** Hanteert het einde van het spel (zetlimiet bereikt op elk moment). */
+        function gameOver() {
+            if (gameState !== GAME_STATE.PLAYING) return;
+            gameState = GAME_STATE.GAME_OVER;
+            
+            const bestScore = parseInt(document.getElementById('best-score-waarde').textContent);
+            let titel = "MISSIE VOLTOOID: Zetten Op!";
+            let tekst = `Je bereikte Niveau **${currentLevel}**. Je totale score is **${totalScore}** punten.`;
+            
+            if (totalScore > bestScore) {
+                titel = "EPISCHE OVERWINNING! NIEUWE BESTE SCORE! 🎉";
+                tekst = `Je hebt een recordscore van **${totalScore}** behaald! De koninkrijken zijn je dankbaar.`;
+                startConfetti(); 
+            }
+            
+            // Toon het resultaatenscherm
+            modalTitel.textContent = titel;
+            modalTekst.innerHTML = tekst;
+            actieKnop.textContent = "Nieuwe Campagne Starten";
+            
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        // De functie 'missionComplete' is verwijderd, de level-up logica zit nu in 'checkLevelUp'
+
+        // --- CONFETTI LOGICA ---
+
+        function startConfetti() {
+            confettiContainer.innerHTML = '';
+            confettiContainer.classList.remove('hidden');
+            const fragment = document.createDocumentFragment();
+            const colors = ['#f59e0b', '#d1d5db', '#fef08a', '#ef4444']; 
+            
+            for (let i = 0; i < 50; i++) { 
+                const piece = document.createElement('div');
+                piece.classList.add('confetti');
+                piece.style.left = `${Math.random() * 100}vw`;
+                piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.animationDelay = `${Math.random() * 2}s`;
+                piece.style.animationDuration = `${2 + Math.random() * 2}s`;
+                piece.style.transform = `scale(${0.5 + Math.random() * 0.5})`; 
+                fragment.appendChild(piece);
+            }
+            confettiContainer.appendChild(fragment);
+        }
+        
+        function stopConfetti() {
+            confettiContainer.classList.add('hidden');
+            confettiContainer.innerHTML = ''; 
+        }
+        
+        window.startGame = startGame;
+    </script>
+</body>
+</html>
